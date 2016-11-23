@@ -1,0 +1,74 @@
+#!/usr/bin/python
+from time import sleep
+import re
+import yarp
+import requests
+from requests.auth import HTTPBasicAuth
+from re import search,M
+import sys
+import yarp as y
+from yarp import BufferedPortBottle as buffport
+from yarp import Value
+
+
+def relays_switch (a):
+	url = "http://192.168.1.199/"
+	code = ['0', 'FF0101' ,'FF0201', 'FF0301','FF0401','FF0501', 'FF0601', 'FF0701', 'FF0801', 'FFE0FF', 'FFE000', 'FF0100', 'FF0200', 'FF0300', 'FF0400', 'FF0500', 'FF0600', 'FF0700', 'FF0800']
+	toggle_command =""
+
+	if a <= 8 and  a >= 1:
+		toggle_command = url+code[a]
+		print "Turn on relay number "+str(a)
+
+	else:
+		if  a <= 18 and a>= 11:
+			toggle_command = url+code[a]
+			print "Turn off relay numer "+str(a-10)
+
+		else:
+			if a == 9:
+				toggle_command = url+code[a]
+			        print "Turn on all realys"
+
+			else:
+				if a == 10:
+					toggle_command = url+code[a]
+				        print "Turn off all relays"
+
+        
+        return toggle_command
+
+
+def main ():
+
+
+	y.Network.init()
+	status_port=buffport()
+	status_port.open("/power/status")
+	cmd_port=buffport()
+	cmd_port.open("/power/cmd")
+        while True:
+                cmd_bottle=cmd_port.read(False)
+                if cmd_bottle:
+                        cmd=map(Value.asInt, map(cmd_bottle.get, range(8)))
+                        for relay_cmd in cmd:
+                                if relay_cmd != 0:
+                                        address= relays_switch(relay_cmd)
+                                        response_1=requests.get(address,auth=('admin', 'admin'))
+
+
+	        response = requests.get('http://192.168.1.199/relays.cgi', auth=('admin','admin'))
+	        print("Http status code: " + str(response.status_code))
+	        c=response.content
+                b=search('\nStatus:\s+([0,1])\s+([0-1])\s+([0-1])\s+([0-1])\s+([0-1])\s+([0-1])\s+([0-1])\s+([0-1])',c)
+                status = map(int, b.groups())
+	        print 'relays status:\n'+str(status)
+                bottle=status_port.prepare()
+                bottle.clear()
+                for relay in status:
+                        bottle.addInt(relay)
+                status_port.write()
+                sleep(3)
+                
+
+main ()
