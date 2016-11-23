@@ -1,0 +1,89 @@
+#!/usr/bin/python
+from yarp import BufferedPortBottle as buffport
+from yarp import Value
+import yarp
+from optparse import OptionParser
+from kivy.app import App
+from kivy.uix.button import Button
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.label import Label
+from kivy.lang import Builder
+from kivy.uix.togglebutton import ToggleButton
+
+class RelayButton(ToggleButton):
+
+    def __init__(self, relay_num=0, **kwargs):
+        super(RelayButton, self).__init__(**kwargs)
+        self.text='ON/OFF'
+        self.relay_num=relay_num
+        
+    def on_state(self, widget, value):
+
+        if value == 'down':
+            print 'Relay on', str(self.relay_num)
+            bottle=client_port_out.prepare()
+            bottle.clear()
+            bottle.addInt(int(self.relay_num))
+            client_port_out.write()
+            
+        else:
+            off_select= 10
+            all_relay_select=1
+            print 'Relay OFF', str(self.relay_num+off_select)
+            bottle=client_port_out.prepare()
+            bottle.clear()
+            if int(self.relay_num) < 9:
+                bottle.addInt(int(self.relay_num)+off_select)
+            else:
+                bottle.addInt(int(self.relay_num)+all_relay_select)
+            client_port_out.write()
+
+
+
+class MainScreen(GridLayout):
+    def __init__(self, **kwargs):
+        super(MainScreen, self).__init__(**kwargs)
+        
+        self.cols=2
+        relay_buttons=[RelayButton(relay_num=(i+1)) for i in xrange(9)]
+        relay_labels=[Label(text='Relay'+str(i+1)) for i in xrange(9)]
+        relay_labels[-1].text='All Relays'
+        [(self.add_widget(pair[0]),self.add_widget(pair[1])) for pair in zip(relay_labels,relay_buttons)]
+        
+
+                        
+class control_Mannager(App):
+    def build (self):
+        return MainScreen()
+
+if __name__ == "__main__":
+
+      
+    yarp.Network.init()
+    client_port_out = buffport()
+    client_port_out.open("/power_client/cmd_out")
+    
+    client_port_in = buffport()
+    client_port_in.open("/power_client/status_in")
+
+    yarp.Network.connect("/power_client/cmd_out","/power/cmd")
+    yarp.Network.connect("/power/status","/power_client/status_in")
+
+    
+    parser = OptionParser()
+    parser.add_option("-f", "--file", dest="filename",
+                      help="write report to FILE", metavar="FILE")
+    parser.add_option("-s", "--status",
+                      action="store_true", dest="print_status", default=False,
+                      help="Print current relays status")
+
+    
+    (options, args) = parser.parse_args()
+    if options.print_status:
+        print "Printing relays status"
+        inputbottle=client_port_in.read()
+        relays_status=map(Value.asInt, map(inputbottle.get, range(8)))
+        print ("Relays Status: ",relays_status)
+
+
+    control_Mannager().run()
