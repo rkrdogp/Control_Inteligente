@@ -1,0 +1,54 @@
+#!/usr/bin/python
+from yarp import BufferedPortBottle as buffport
+from yarp import Value
+import yarp
+from optparse import OptionParser
+
+
+off_select = 10
+yarp.Network.init()
+client_port_out = buffport()
+client_port_out.open("/power_client/cmd_out")
+    
+client_port_in = buffport()
+client_port_in.open("/power_client/status_in")
+
+yarp.Network.connect("/power_client/cmd_out","/power/cmd")
+yarp.Network.connect("/power/status","/power_client/status_in")
+
+
+parser = OptionParser()
+parser.add_option("-r", "--relay", dest="relay_num",
+                      help="Relay number ", metavar="NUM")
+parser.add_option("-s", "--status",
+                      action="store_true", dest="print_status", default=False,
+                      help="Print current relays status")
+parser.add_option("--on",
+                      action="store_true", dest="relay_on", default=False,
+                      help="Turn on relay")
+parser.add_option("--off",
+                      action="store_true", dest="relay_off", default=False,
+                      help="Turn off relays")
+
+(options, args) = parser.parse_args()
+
+if options.relay_on:
+    print "Turning relay on",str(options.relay_num)
+    bottle=client_port_out.prepare()
+    bottle.clear()
+    bottle.addInt(int(options.relay_num))
+    client_port_out.write()
+    
+if options.relay_off:
+    print "Turning relay off",str(options.relay_num)
+    bottle=client_port_out.prepare()
+    bottle.clear()
+    bottle.addInt(int(options.relay_num) + off_select)
+    client_port_out.write()
+    
+if options.print_status:
+    print "Printing relays status"
+    inputbottle=client_port_in.read()
+    relays_status=map(Value.asInt, map(inputbottle.get, range(8)))
+    print "Relays Status: ",relays_status
+    
